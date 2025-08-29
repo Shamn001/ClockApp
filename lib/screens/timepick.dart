@@ -23,7 +23,7 @@ class _TimepickState extends State<Timepick> {
     alarmBox=Hive.box('alarms');
   }
 
-  void saveTime(){
+  void addTime(){
     Map<String, Object> result={
       'time':'${hour.toString().padLeft(2,'0')}:${min.toString().padLeft(2,'0')}',
       'status':true,
@@ -36,6 +36,8 @@ class _TimepickState extends State<Timepick> {
 
     alarmBox.put('alarms', alarms);
     Navigator.pop(context);
+  }
+  saveTime(){
   }
 
   @override
@@ -125,7 +127,7 @@ class _TimepickState extends State<Timepick> {
             ),
             Expanded(
               child: TextButton(
-                onPressed: saveTime, 
+                onPressed: addTime, 
                 child: Text('Save',
                 style: TextStyle(
                 color: Colors.black,fontSize: 20,fontWeight: FontWeight.bold)))

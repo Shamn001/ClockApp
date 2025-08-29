@@ -1,6 +1,9 @@
 import 'package:clock1/screens/timepick.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,7 +14,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
 
+  Timer? alarmTimer;
+  AudioPlayer audioPlayer=AudioPlayer();
   late Box alarmBox;
+
   @override
   void initState(){
     super.initState();
@@ -20,7 +26,18 @@ class _HomeScreenState extends State<HomeScreen> {
       alarmBox.put('alarms',[{'time':'00:00','status':false,'format':'am'}]);
     }
 
+    alarmTimer=Timer.periodic(Duration(seconds:1), (timer){
+      checkAlarm();
+    }
+    );
   }
+
+  @override
+  void dispose(){
+    alarmTimer?.cancel();
+    super.dispose();
+  }
+
   void updateStatus(int index,bool value){
     List alarms=alarmBox.get('alarms');
     alarms[index]['status']=value;
@@ -33,6 +50,40 @@ class _HomeScreenState extends State<HomeScreen> {
     alarmBox.put('alarms', alarms);
     setState(() {
     });
+  }
+  void checkAlarm(){
+    List alarms=alarmBox.get('alarms');
+    String currentTime=DateFormat('hh:mm').format(DateTime.now());
+    String currentFormat=DateFormat('a').format(DateTime.now()).toLowerCase();
+
+    for(var alarm in alarms){
+      if(
+        alarm['status']==true&&
+        alarm['time']==currentTime&&
+        alarm['format']==currentFormat
+        ){
+          alarm['status']=false;
+          var time=alarm['time'];
+          ringAlarm(time);
+        }
+    }
+  }
+  void ringAlarm(time)async{
+    await audioPlayer.play(AssetSource('alarm.mp3'));
+    showDialog(
+      context: context, 
+      builder: (_)=>AlertDialog(
+        title: Text(time),
+        content: Text('Alarm'),
+        actions: [
+          TextButton(
+            onPressed: (){
+              audioPlayer.stop();
+              Navigator.pop(context);
+              }, 
+            child: Text('Stop'))
+        ],
+      ));
   }
 
   @override
@@ -75,22 +126,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: alarms.length,
-                itemBuilder: (context,index){
-                  var alarm=alarms[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5,horizontal: 4),
-                  child: Material(
-                    borderRadius: BorderRadius.circular(20),
-                    color: Colors.white,
-                    child: InkWell(
-                      onTap: ()=>Navigator.push( context,
-                      MaterialPageRoute(builder: (context)=>Timepick())
-                      ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: alarms.length,
+                  itemBuilder: (context,index){
+                    var alarm=alarms[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5,horizontal: 4),
+                    child: Material(
+                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.white,
+                      child: InkWell(
+                        onTap: ()=>Navigator.push( context,
+                        MaterialPageRoute(builder: (context)=>Timepick())
+                        ),
                       onLongPress: () async {
-                                              final result = await showModalBottomSheet<String>(
+                        final result = await showModalBottomSheet<String>(
                           context: context,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -117,17 +168,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             );
                           },
-  );
-
-  if (result == 'edit') {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => Timepick()),
-    );
-  } else if (result == 'delete') {
-    deleteAlarm(index);
-  }
-},
+                        );
+                      
+                        if (result == 'edit') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => Timepick()),
+                                                );
+                        } else if (result == 'delete') {
+                          deleteAlarm(index);
+                        }
+                      },
 
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
@@ -154,14 +205,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             Transform.scale(
                               scale: 0.7,
-                              child: Switch(value: alarm['status'],
-                              activeColor: Colors.white,
-                              activeTrackColor:  Colors.deepPurple,
-                              inactiveThumbColor: Colors.white,
+                              child: Switch(
+                                
+                                value: alarm['status'],
+                                activeColor: Colors.white,
+                                activeTrackColor:  Colors.deepPurple,
+                                inactiveThumbColor: Colors.white,
                               
                               onChanged:(value){
                                 setState(() {
-                                  alarm['status']=value;
+                                  updateStatus(index, value);
                                 });
                               } ),
                             )
