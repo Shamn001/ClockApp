@@ -1,29 +1,55 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
-class Timer extends StatefulWidget {
-  const Timer({super.key});
+class TimerScreen extends StatefulWidget {
+  const TimerScreen({super.key});
 
   @override
-  State<Timer> createState() => _TimerState();
+  State<TimerScreen> createState() => _TimerScreenState();
 }
 
-class _TimerState extends State<Timer> {
-  bool isRunning=false;
-  int hour=0;
-  int min=0;
-  int sec=0;
-  final ValueNotifier<int> remainingSec=ValueNotifier<int> (0);
+class _TimerScreenState extends State<TimerScreen> {
+  bool isRunning = false;
+  int min = 0;
+  int sec = 0;
+  int ms = 0; // milliseconds (0–999)
+
+  final ValueNotifier<int> remainingMs = ValueNotifier<int>(0);
   Timer? timer;
-  
-  void startTimer(){
-    int totalseconds=hour*3600 + min*60 + sec;
-    remainingSec.value=totalseconds;
-  }
-  void stopTimer(){
 
-  }
-  void delete(){
+  void startTimer() {
+    int totalMilliseconds = (min * 60 * 1000) + (sec * 1000) + ms;
+    remainingMs.value = totalMilliseconds;
+    isRunning = true;
 
+    timer = Timer.periodic(const Duration(milliseconds: 10), (t) {
+      if (remainingMs.value <= 0) {
+        stopTimer();
+      } else {
+        remainingMs.value -= 10;
+      }
+    });
+  }
+
+  void stopTimer() {
+    timer?.cancel();
+    isRunning = false;
+    setState(() {});
+  }
+
+  void resetTimer() {
+    stopTimer();
+    remainingMs.value = 0;
+    min = 0;
+    sec = 0;
+    ms = 0;
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -34,140 +60,152 @@ class _TimerState extends State<Timer> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
+              const SizedBox(height: 50),
               SizedBox(
-                height: 100,
-                child: Row( mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(onPressed: (){
-                      showMenu(
-                        context: context,
-                        position: RelativeRect.fromLTRB(100, 80, 0, 0),
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                        items: [
-                          PopupMenuItem(
-                            value: 'add',
-                            child: Text('Add preset timer',style: TextStyle(fontSize: 16,fontWeight: FontWeight.w400),)),
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit preset timers')),
-                          PopupMenuItem(
-                            value: 'set',
-                            child: Text('Settings'))
-                        ]
-                        ).then((value){
-                          if(value!=null){
-                            switch (value){
-                              case 'add':
-                              break;
-                              case 'edit':
-                              break;
-                              case 'set':
-                              break;
-                            }
-                          }
-                        });
-                      }, 
-                    icon: Icon(Icons.more_vert))
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 300,
+                height: 250,
                 child: Center(
                   child: Row(
                     children: [
+                      // Minutes
                       Expanded(
                         child: ListWheelScrollView.useDelegate(
-                          itemExtent: 100,
-                          physics: FixedExtentScrollPhysics(),
-                           onSelectedItemChanged: (index) {
-                             setState(() {
-                               hour=index%24;
-                             });
-                           },
-                          childDelegate: ListWheelChildBuilderDelegate(
-                            builder: (context , index){
-                              final value=index%24;
-                              return Text(value.toString().padLeft(2,'0'),
-                              style: TextStyle(fontSize: 30,
-                              color: hour==value?Colors.black:Colors.grey),);
-                              }
-                              )
-                            ),
-                      ),
-                      Expanded(
-                        child: ListWheelScrollView.useDelegate(
-                          itemExtent: 100,
-                          physics: FixedExtentScrollPhysics(), 
+                          itemExtent: 60,
+                          physics: const FixedExtentScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {
-                              min=index%60;
+                              min = index % 60;
                             });
                           },
                           childDelegate: ListWheelChildBuilderDelegate(
-                            builder: (context , index){
-                              final value=index%60;
-                              return Text(value.toString().padLeft(2,'0'),
-                              style: TextStyle(fontSize: 30,color: min==value?Colors.black:Colors.grey),);
-                              }
-                              )
-                            ),
+                            builder: (context, index) {
+                              final value = index % 60;
+                              return Text(
+                                value.toString().padLeft(2, '0'),
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  color: min == value ? Colors.black : Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                      Text(':',style: TextStyle(fontSize: 30),),
+                      const SizedBox(
+                        height: 60,
+                        child: Text(':', style: TextStyle(fontSize: 28)),
+                      ),
+                      // Seconds
                       Expanded(
                         child: ListWheelScrollView.useDelegate(
-                          itemExtent: 100,
-                          physics: FixedExtentScrollPhysics(), 
+                          itemExtent: 60,
+                          physics: const FixedExtentScrollPhysics(),
                           onSelectedItemChanged: (index) {
                             setState(() {
-                              sec=index%60;
-                            });                            
+                              sec = index % 60;
+                            });
                           },
                           childDelegate: ListWheelChildBuilderDelegate(
-                            builder: (context , index){
-                              final value=index%60;
-                              return Text(value.toString().padLeft(2,'0'),
-                              style: TextStyle(
-                                fontSize: 30,color: sec==value?Colors.black:Colors.grey),);
-                              }
-                              )
-                            ),
-                      )
+                            builder: (context, index) {
+                              final value = index % 60;
+                              return Text(
+                                value.toString().padLeft(2, '0'),
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  color: sec == value ? Colors.black : Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 60,
+                        child: Text(':', style: TextStyle(fontSize: 28)),
+                      ),
+                      // Milliseconds (0–99 for readability)
+                      Expanded(
+                        child: ListWheelScrollView.useDelegate(
+                          itemExtent: 60,
+                          physics: const FixedExtentScrollPhysics(),
+                          onSelectedItemChanged: (index) {
+                            setState(() {
+                              ms = (index % 100) * 10; // steps of 10ms
+                            });
+                          },
+                          childDelegate: ListWheelChildBuilderDelegate(
+                            builder: (context, index) {
+                              final value = (index % 100) * 10;
+                              return Text(
+                                value.toString().padLeft(2, '0'),
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  color: ms == value ? Colors.black : Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-              Row( mainAxisAlignment: MainAxisAlignment.spaceAround,
+              const SizedBox(height: 20),
+              ValueListenableBuilder<int>(
+                valueListenable: remainingMs,
+                builder: (context, value, child) {
+                  final minutes = (value ~/ 60000).toString().padLeft(2, '0');
+                  final seconds = ((value ~/ 1000) % 60).toString().padLeft(2, '0');
+                  final milli = ((value % 1000) ~/ 10).toString().padLeft(2, '0');
+                  return Text(
+                    "$minutes:$seconds:$milli",
+                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
+                  );
+                },
+              ),
+              const SizedBox(height: 30),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  TextButton(onPressed: delete,
-                  style: TextButton.styleFrom(
+                  TextButton(
+                    onPressed: resetTimer,
+                    style: TextButton.styleFrom(
                       backgroundColor: Colors.grey.shade300,
-                      minimumSize: Size(140, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(24)),
+                      minimumSize: const Size(120, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
                     ),
-                    child: Text('Reset',
-                    style:TextStyle(color:remainingSec.value==0 ? Colors.grey : Colors.black,
-                    fontSize: 18))
+                    child: const Text(
+                      'Reset',
+                      style: TextStyle(color: Colors.black, fontSize: 18),
+                    ),
                   ),
-                  TextButton(onPressed: ()=>setState(() {
-                    isRunning==false ? startTimer() : stopTimer();
-                  }),
-                  style: TextButton.styleFrom(
-                    backgroundColor: isRunning==false? Color.fromARGB(203, 67, 40, 243) : Colors.redAccent,
-                    minimumSize: Size(140, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadiusGeometry.circular(24)),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        isRunning ? stopTimer() : startTimer();
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      backgroundColor: isRunning
+                          ? Colors.redAccent
+                          : const Color.fromARGB(203, 67, 40, 243),
+                      minimumSize: const Size(120, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    child: Text(
+                      isRunning ? 'Stop' : 'Start',
+                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                    ),
                   ),
-                  child: Text(isRunning==false ? 'Start':'Stop',
-                  style: TextStyle(color: Colors.white,
-                  fontSize: 18),),
-                  ),
-                  
                 ],
-                ),
+              ),
             ],
           ),
-        )
+        ),
       ),
     );
   }

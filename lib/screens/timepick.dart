@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
 class Timepick extends StatefulWidget {
-  const Timepick({super.key});
+
+  final int? index;
+
+  const Timepick({super.key,this.index});
 
   @override
   State<Timepick> createState() => _TimepickState();
@@ -17,10 +20,24 @@ class _TimepickState extends State<Timepick> {
   int tme=0;
   List<String> dayTme=['am','pm'];
 
+  late FixedExtentScrollController hourController;
+  late FixedExtentScrollController minController;
+  late FixedExtentScrollController tmeController;
+
   @override
   void initState(){
     super.initState();
     alarmBox=Hive.box('alarms');
+    if(widget.index!=null){
+      List alarms=alarmBox.get('alarms',defaultValue: []);
+      var time=alarms[widget.index!]['time'];
+      hour=int.parse(time.split(':')[0]);
+      min=int.parse(time.split(':')[1]);
+      tme= alarms[widget.index!]['format']=='am'? 0 :1;
+    }
+    hourController=FixedExtentScrollController(initialItem: hour);
+    minController=FixedExtentScrollController(initialItem: min);
+    tmeController=FixedExtentScrollController(initialItem: tme);
   }
 
   void addTime(){
@@ -28,7 +45,7 @@ class _TimepickState extends State<Timepick> {
       'time':'${hour.toString().padLeft(2,'0')}:${min.toString().padLeft(2,'0')}',
       'status':true,
       'format':dayTme[tme]
-      };
+    };
 
     List alarms=alarmBox.get('alarms',defaultValue: []);
 
@@ -37,7 +54,16 @@ class _TimepickState extends State<Timepick> {
     alarmBox.put('alarms', alarms);
     Navigator.pop(context);
   }
-  saveTime(){
+  updateTime(){
+    List alarms=alarmBox.get('alarms');
+
+    alarms[widget.index!]={
+      'time':'${hour.toString().padLeft(2,'0')}:${min.toString().padLeft(2,'0')}',
+      'status':true,
+      'format':dayTme[tme]
+    };
+    alarmBox.put('alarms', alarms);
+    Navigator.pop(context);
   }
 
   @override
@@ -54,6 +80,7 @@ class _TimepickState extends State<Timepick> {
                   children: [
                     Expanded(
                       child: ListWheelScrollView.useDelegate(
+                        controller: hourController,
                         itemExtent: 100,
                         physics: FixedExtentScrollPhysics(),
                         onSelectedItemChanged: (index) {
@@ -63,7 +90,7 @@ class _TimepickState extends State<Timepick> {
                         },
                         childDelegate: ListWheelChildBuilderDelegate(
                         builder: (context , index){
-                          final value=index%24;
+                          final value=index%12;
                           return Text(value.toString().padLeft(2,'0'),
                           style: TextStyle(fontSize: 30,
                           color: hour==value?Colors.black:Colors.grey),);
@@ -73,6 +100,7 @@ class _TimepickState extends State<Timepick> {
                     ),
                     Expanded(
                       child: ListWheelScrollView.useDelegate(
+                        controller: minController,
                         itemExtent: 100,
                         physics: FixedExtentScrollPhysics(),
                         onSelectedItemChanged: (index) {
@@ -92,6 +120,7 @@ class _TimepickState extends State<Timepick> {
                     ),
                     Expanded(
                       child: ListWheelScrollView.useDelegate(
+                        controller: tmeController,
                         itemExtent: 100,
                         physics: FixedExtentScrollPhysics(),
                         onSelectedItemChanged: (index) {
@@ -127,7 +156,7 @@ class _TimepickState extends State<Timepick> {
             ),
             Expanded(
               child: TextButton(
-                onPressed: addTime, 
+                onPressed: widget.index==null ? addTime : updateTime, 
                 child: Text('Save',
                 style: TextStyle(
                 color: Colors.black,fontSize: 20,fontWeight: FontWeight.bold)))

@@ -17,7 +17,7 @@ class _BottomNavState extends State<BottomNav> {
     HomeScreen(),
     Wclock(),
     Swatch(),
-    Timer()
+    TimerScreen()
   ];
   @override
   Widget build(BuildContext context) {

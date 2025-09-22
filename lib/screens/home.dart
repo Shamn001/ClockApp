@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
+import 'package:alarm/alarm.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,19 +19,57 @@ class _HomeScreenState extends State<HomeScreen> {
   AudioPlayer audioPlayer=AudioPlayer();
   late Box alarmBox;
 
-  @override
-  void initState(){
-    super.initState();
-    alarmBox=Hive.box('alarms');
-    if(alarmBox.get('alarms')==null){
-      alarmBox.put('alarms',[{'time':'00:00','status':false,'format':'am'}]);
-    }
+  DateTime parseTime(String timeStr, String format) {
+  final parts = timeStr.split(':');
+  int hour = int.parse(parts[0]);
+  final minute = int.parse(parts[1]);
+  final fmt = format.toLowerCase();
 
-    alarmTimer=Timer.periodic(Duration(seconds:1), (timer){
-      checkAlarm();
-    }
-    );
+  // Convert to 24-hour
+  if (fmt == 'pm' && hour != 12) hour += 12;
+  if (fmt == 'am' && hour == 12) hour = 0;
+
+  final now = DateTime.now();
+  var scheduled = DateTime(now.year, now.month, now.day, hour, minute);
+
+  // If the time is already past, schedule for tomorrow
+  if (!scheduled.isAfter(now)) {
+    scheduled = scheduled.add(const Duration(days: 1));
   }
+
+  return scheduled;
+}
+
+
+@override
+void initState() {
+  super.initState();
+  alarmBox = Hive.box('alarms');
+
+  if (alarmBox.get('alarms') == null) {
+    alarmBox.put('alarms', []);
+  }
+
+  Alarm.ringStream.stream.listen((AlarmSettings alarmSettings) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(DateFormat('hh:mm a').format(alarmSettings.dateTime)),
+        content: const Text('Alarm!'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Alarm.stop(alarmSettings.id);
+              Navigator.pop(context);
+            },
+            child: const Text('Stop'),
+          ),
+        ],
+      ),
+    );
+  });
+}
+
 
   @override
   void dispose(){
@@ -38,53 +77,33 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void updateStatus(int index,bool value){
-    List alarms=alarmBox.get('alarms');
-    alarms[index]['status']=value;
-    alarmBox.put('alarms',alarms);
+  Future<void> scheduleAlarm(int id,DateTime dateTime) async{
+    final alarmSettings= AlarmSettings(
+      id: id, dateTime: dateTime, 
+      assetAudioPath: 'assets/alarm.mp3', 
+      volumeSettings: VolumeSettings.fade(fadeDuration: Duration(seconds: 3)),
+      loopAudio: true,
+      androidFullScreenIntent: true,
+      notificationSettings: NotificationSettings(title: 'alarm', body: 'body')
+    );
+    await Alarm.set(alarmSettings: alarmSettings);
+  }
+
+  Future<void> cancelAlarm(int id) async{
+    await Alarm.stop(id);
     setState(() {});
   }
-  void deleteAlarm( index){
+
+  void deleteAlarm( index) async{
     List alarms = alarmBox.get('alarms');
+    final id=alarms[index]['id'];
+    await cancelAlarm(id);
     alarms.removeAt(index);
     alarmBox.put('alarms', alarms);
     setState(() {
     });
   }
-  void checkAlarm(){
-    List alarms=alarmBox.get('alarms');
-    String currentTime=DateFormat('hh:mm').format(DateTime.now());
-    String currentFormat=DateFormat('a').format(DateTime.now()).toLowerCase();
 
-    for(var alarm in alarms){
-      if(
-        alarm['status']==true&&
-        alarm['time']==currentTime&&
-        alarm['format']==currentFormat
-        ){
-          alarm['status']=false;
-          var time=alarm['time'];
-          ringAlarm(time);
-        }
-    }
-  }
-  void ringAlarm(time)async{
-    await audioPlayer.play(AssetSource('alarm.mp3'));
-    showDialog(
-      context: context, 
-      builder: (_)=>AlertDialog(
-        title: Text(time),
-        content: Text('Alarm'),
-        actions: [
-          TextButton(
-            onPressed: (){
-              audioPlayer.stop();
-              Navigator.pop(context);
-              }, 
-            child: Text('Stop'))
-        ],
-      ));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,9 +156,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(20),
                       color: Colors.white,
                       child: InkWell(
-                        onTap: ()=>Navigator.push( context,
-                        MaterialPageRoute(builder: (context)=>Timepick())
-                        ),
+                        onTap: ()async{
+                          await Navigator.push( context,
+                            MaterialPageRoute(builder: (context)=>Timepick(index: index))
+                          );
+                          setState(() {});
+                        },
                       onLongPress: () async {
                         final result = await showModalBottomSheet<String>(
                           context: context,
@@ -174,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (context) => Timepick()),
-                                                );
+                          );
                         } else if (result == 'delete') {
                           deleteAlarm(index);
                         }
@@ -212,10 +234,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                 activeTrackColor:  Colors.deepPurple,
                                 inactiveThumbColor: Colors.white,
                               
-                              onChanged:(value){
+                              onChanged:(value)async{
                                 setState(() {
-                                  updateStatus(index, value);
+                                  alarm['status']=value;
+                                  alarmBox.put('alarms',alarms);
                                 });
+                                if(value){
+                                  final alarmTime=parseTime(alarm['time'],alarm['format']);
+                                  await scheduleAlarm(alarm['id'],alarmTime);
+                                }
+                                else{
+                                  cancelAlarm(alarm['id']);
+                                }
                               } ),
                             )
                           ],

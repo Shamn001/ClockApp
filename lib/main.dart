@@ -1,6 +1,6 @@
+import 'package:alarm/alarm.dart';
 import 'package:clock1/screens/bottom_nav.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -8,6 +8,7 @@ void main() async{
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await Hive.openBox('alarms');
+  await Alarm.init();
   runApp(const MyApp());
 }
 
